@@ -1,4 +1,4 @@
-# Apertura de sobres con hilo mediante brazo robótico
+# Apertura de sobres con hilo mediante brazo robótico (Robotic string-envelope opening)
 This is a ROS package to untie the string of an envelope that has been previously tied arbitrarily. Initially, the robot is grasping the end of the string in the middle of pivots.
 ## Hardware requirements
 - Universal Robot UR10
@@ -23,7 +23,7 @@ Then, compile the executables:
   source/devel setup.bash
 ```
 
-## Protocol
+## Protocol -> How to run it
 First, make the connection with UR10 robot by launching these files in three different terminals:
 ```
   roslaunch ur_modern_driver ur10_bringup.launch limited:=true robot_ip:=192.168.1.102 [reverse_port:=REVERSE_PORT]
