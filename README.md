@@ -1,5 +1,5 @@
 # Robotic string-envelope opening
-This is a ROS package to untie the string of an envelope that has been previously tied arbitrarily. 
+This is a ROS package to untie the string of an envelope that has been previously tied arbitrarily. Initially, the robot is grasping the end of the string in the middle of pivots.
 ## Hardware requirements
 - Universal Robot UR10
 - Robotiq FT300 wrist force/torque sensor
@@ -7,8 +7,6 @@ This is a ROS package to untie the string of an envelope that has been previousl
 - String envelope:
     - Distance between pivots: 4,25 cm
     - Pivots' radius: 4 mm
-
- Initially, the robot is grasping the end of the string in the middle of pivots.
 ## Software prerequisites
 - ROS kinetic. 
 - Universal robot package (communication with UR10 controllers).
