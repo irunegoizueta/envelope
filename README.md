@@ -1,14 +1,15 @@
-# envelope
-This is a ROS package to untie the string of an envelope that has been previously tied arbitrarily. The material used for this is:
-1) Universal Robot UR10
-2) Robotiq FT300 wrist force/torque sensor
-3) Robotiq 3 finger gripper
-4) String envelope:
+# Robotic string-envelope opening
+This is a ROS package to untie the string of an envelope that has been previously tied arbitrarily. 
+## Hardware requirements
+- Universal Robot UR10
+- Robotiq FT300 wrist force/torque sensor
+- Robotiq 3 finger gripper
+- String envelope:
     - Distance between pivots: 4,25 cm
     - Pivots' radius: 4 mm
 
  Initially, the robot is grasping the end of the string in the middle of pivots.
-## Requirements
+## Software prerequisites
 - ROS kinetic. 
 - Universal robot package (communication with UR10 controllers).
 - Robotiq package (communication with FT300 force/torque sensor and 3 finger gripper). 
@@ -20,7 +21,7 @@ Copy the "envelope" repository inside your workspace and compile the executables
   source/devel setup.bash
 ```
 
-## Usage
+## Protocol
 First, make the connection with UR10 robot by launching these files in three different terminals:
 ```
   roslaunch ur_modern_driver ur10_bringup.launch limited:=true robot_ip:=192.168.1.102 [reverse_port:=REVERSE_PORT]
