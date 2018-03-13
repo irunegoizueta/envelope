@@ -1,4 +1,4 @@
-# Robotic string-envelope opening
+# Apertura de sobres con hilo mediante brazo robótico
 This is a ROS package to untie the string of an envelope that has been previously tied arbitrarily. Initially, the robot is grasping the end of the string in the middle of pivots.
 ## Hardware requirements
 - Universal Robot UR10
