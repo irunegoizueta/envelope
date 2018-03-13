@@ -13,7 +13,11 @@ This is a ROS package to untie the string of an envelope that has been previousl
 - Robotiq package (communication with FT300 force/torque sensor and 3 finger gripper). 
 - Software tested on Ubuntu 16.04.3 LTS.
 ## How to install it
-Copy the "envelope" repository inside your workspace and compile the executables using these commands:
+Clone the "envelope" repository inside your workspace:
+```
+  git clone https://github.com/irunegoizueta/envelope.git
+```
+Then, compile the executables:
 ```
   catkin_make
   source/devel setup.bash
