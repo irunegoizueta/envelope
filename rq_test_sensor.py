@@ -34,6 +34,8 @@
 #
 # Copyright (c) 2012, Robotiq, Inc.
 # Revision $Id$
+#
+# Author: Irune Goizueta Zubimendi
 
 import rospy
 from std_msgs.msg import String
