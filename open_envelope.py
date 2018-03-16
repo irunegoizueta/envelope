@@ -196,10 +196,11 @@ def move_robot():
 
   n = 90
   no = 90
-  s = 0.015
+  s = 0.016
   r = 0.0001825
   turn=0 # number of consecutive turns around different pivot
   same=0 # number of consecutive turns around same pivot
+  last_same=0
   down=0.005 # Move down if movement is from Pivot 1 to Pivot 2
   up=-0.005 # Move up if movement is from Pivot 2 to Pivot 1
   direction=0 # directon=1: CW P1, direction=2: CCW P1, direction=3: CW P2, direction=4: CCW P2
@@ -211,7 +212,7 @@ def move_robot():
   # Move +1 cm in y
   move_thread(0, s)
 
-  rospy.sleep(2)
+  rospy.sleep(1.5)
 
   # Read torque values Mx, My
   force_vector = Force.mean()
@@ -221,16 +222,16 @@ def move_robot():
   # Return to initial pose
   move_thread(0, -s)
 
-  rospy.sleep(2)
+  rospy.sleep(1.5)
 
   # if Myi - My greater than threshold value
-  if (abs(myi - my)>0.085):
-	# if torque Mx is smaller than initial torque Mxi, the movement is CW P1 until first turn complete
+  if (abs(myi - my)>0.095):
+	# if torque Mx is smaller than initial torque Mxi, the movement is CW P1
 	if mx<mxi:
 		turn_thread(n, n+270, r, 1, 1, 1)
 		direction=1
 
-	# else: turn CCW P2 until first turn complete
+	# else: turn CCW P2
 	else:
 		turn_thread(n, n+270, r, -1, -1, 1)
 		direction=4
@@ -239,7 +240,7 @@ def move_robot():
   else:
 	move_thread(0, -s)
 
-	rospy.sleep(2)
+	rospy.sleep(1.5)
 
 	# Read torque values Mx, My
 	force_vector = Force.mean()
@@ -249,22 +250,22 @@ def move_robot():
 	# Return to initial pose
 	move_thread(0, s)
 
-	rospy.sleep(2)
+	rospy.sleep(1.5)
 
-	# if torque is in Pivot 1 direction, then turn CCW P1 until turn complete
+	# if torque is in Pivot 1 direction, then turn CCW P1
 	if mx<mxi:
 		turn_thread(n, n+270, r, 1, -1, 1)
 		direction=2
 
-	# else: turn CW P2 until turn complete
+	# else: turn CW P2
 	else:
 		turn_thread(n, n+270, r, -1, 1, 1)
 		direction=3
 
   n=n+270
-  rospy.sleep(4)
+  rospy.sleep(2)
 
-  turn=1
+  turn=turn+1
 
   # Continue untying the thread
   while True:
@@ -274,8 +275,8 @@ def move_robot():
 	mx = force_vector[0]
 	my = force_vector[1]
 	
-	# if Myi - My greater than threshold value, continue turning the same direction about the same pivot
-	if(abs(myi - my)>0.085):
+	# if Myi - My greater than threshold value, continue turning about the same pivot
+	if(abs(myi - my)>0.095):
 
 		# if the gripper moved to ensure it was tied around the same pivot or not, undo the movement
 		if(ensure==1):
@@ -284,52 +285,62 @@ def move_robot():
 			elif (direction==2 or direction==3):
 				move_thread(0, 0.003)
 			
-			rospy.sleep(2)
+			ensure=0
+			rospy.sleep(1.5)			
 
-		# if last movement was around the same pivot as the previous one, then undo the movement to untighten the thread
+		# if last movement was around the same pivot as the previous one, then undo the movement to release the thread
 		if(previous==1):
-			if(direction==1): 
-				move_thread(0, -(0.02/turn-0.001*(same-1)))
-			elif(direction==2):
-				move_thread(0, 0.02/turn-0.001*(same-1))
-			elif(direction==3):
-				move_thread(0, 0.02/turn-0.001*(same-1))
-			else:
-				move_thread(0, -(0.02/turn-0.001*(same-1)))
+			if(direction==1 or direction==4): 
+				move_thread(0, -(0.02-0.0015*(turn+same-2)))#0.02/turn
+			elif(direction==2 or direction==3):
+				move_thread(0, 0.02-0.0015*(turn+same-2))
 
-			rospy.sleep(2)	
+			rospy.sleep(1.5)	
 
 		# if it is the first time the gripper turns about the same pivot, reduce the radius of movement
-		else:
+		elif(previous==0 or turn>1):
 			r=r-(0.0001825-0.000135)/(turn+same)
+
+		if(turn>1 and same>0):
+			if(last_same==1):
+				previous=2
+				if(direction==1):
+					move_thread(-0.001/(turn+same-1), -0.02/(turn+same-1))#/(turn+same)
+				elif(direction==2):
+					move_thread(-0.001/(turn+same-1), 0.02/(turn+same-1))
+				elif(direction==3):
+					move_thread(-0.001/(turn+same-1), 0.02/(turn+same-1))
+				else:
+					move_thread(-0.001/(turn+same-1), -0.02/(turn+same-1))
+			else:
+				previous==0
+				rospy.sleep(1.5)
 		
 		# if previous turn CW about P1, move to new x and y positions and keep turning CW P1
 		if(direction==1):
 			if(previous==0):
 				if(abs(myi - my)>0.6):
-					move_thread(0.0015, -0.03)
+					move_thread(-0.0015, -0.03)
 					release=1
 				else:
-					move_thread(0.001, -0.02)
+					move_thread(-0.001, -0.02)
 					release=0
 				rospy.sleep(2)
 
 			turn_thread(n, n+360, r, 1, 1, 1)
-			direction=1
 
 		# if previous turn CCW about P1, keep turning CCW P1
 		elif(direction==2):
 			if(previous==0):
 				if(abs(myi - my)>0.6):
-					move_thread(0.0015, 0.03)
+					move_thread(-0.0015, 0.03)
 					release=1
 				else:
-					move_thread(0.001, 0.02)
+					move_thread(-0.001, 0.02)
 					release=0
 				rospy.sleep(2)
 
 			turn_thread(n, n+360, r, 1, -1, 1)
-			direction=2
 
 		# if previous turn CW about P2, keep turning CW P2
 		elif(direction==3):
@@ -343,7 +354,6 @@ def move_robot():
 				rospy.sleep(2)
 			
 			turn_thread(n, n+360, r, -1, 1, 1)
-			direction=3
 
 		# if previous turn CCW about P2, keep turning CCW P2
 		elif(direction==4):
@@ -357,27 +367,49 @@ def move_robot():
 				rospy.sleep(2)
 			
 			turn_thread(n, n+360, r, -1, -1, 1)
-			direction=4
 
-		rospy.sleep(6)
+		rospy.sleep(1+turn+same)
 
 		force_vector = Force.mean()
 		mx = force_vector[0]
 		my = force_vector[1]
 		
-		if(abs(myi - my)<0.085):
+		if(abs(myi - my)<0.095 and turn>1):
+			# Move a little to make sure it is not tied about the same pivot
+			if(direction==1 or direction==4):
+				move_thread(0, 0.005)
+			elif (direction==2 or direction==3):
+				move_thread(0, -0.005)
+			rospy.sleep(1.5)
+			
+			ensure=1
+			force_vector = Force.mean()
+			mx = force_vector[0]
+			my = force_vector[1]
+
+		if(ensure==1):
+			# Move a little to make sure it is not tied about the same pivot
+			if(direction==1 or direction==4):
+				move_thread(0, -0.005)
+			elif (direction==2 or direction==3):
+				move_thread(0, 0.005)
+			rospy.sleep(1.5)
+			
+			ensure=0
+
+		if(abs(myi - my)<0.095):
 			# Pull the thread to know if it is tied about the same pivot or not
-			if(direction==1):
-				move_thread(0, 0.02/turn-0.001*(same-1))
-			elif (direction==2):
-				move_thread(0, -(0.02/turn-0.001*(same-1)))
-			elif(direction==3):
-				move_thread(0, -(0.02/turn-0.001*(same-1)))
-			else:
-				move_thread(0, 0.02/turn-0.001*(same-1))
-			previous=1	
+			if(direction==1 or direction==4):
+				move_thread(0, 0.02-0.0015*(turn+same-1))#0.02/turn
+			elif (direction==2 or direction==3):
+				move_thread(0, -(0.02-0.0015*(turn+same-1)))
+		
+			previous=1
+			rospy.sleep(1.5)
+
 		
 		same=same+1
+		last_same=1
 		n=n+360
 
 		rospy.sleep(2)
@@ -385,16 +417,11 @@ def move_robot():
 	#else: find the good direction to turn about the other pivot
 	else:
 		# Move a little to make sure it is not tied about the same pivot
-		if(direction==1):
-			move_thread(0, 0.003)
-		elif (direction==2):
-			move_thread(0, -0.003)
-		elif(direction==3):
-			move_thread(0, -0.003)
-		else:
-			move_thread(0, 0.003)
-
-		rospy.sleep(2)
+		if(direction==1 or direction==4):
+			move_thread(0, 0.005)
+		elif (direction==2 or direction==3):
+			move_thread(0, -0.005)
+		rospy.sleep(1.5)
 
 		ensure=1
 
@@ -404,70 +431,65 @@ def move_robot():
 		my = force_vector[1]
 
 		# if Myi - My smaller than threshold value, then find the direction to move about the othe pivot
-		if(abs(myi - my)<0.085):
+		if(abs(myi - my)<0.095):
 
 			# undo the previous movement
-			if(direction==1):
-				move_thread(0, -0.003)
-			elif (direction==2):
-				move_thread(0, 0.003)
-			elif(direction==3):
-				move_thread(0, 0.003)
-			else:
-				move_thread(0, -0.003)
-
-			rospy.sleep(2)
+			if(direction==1 or direction==4):
+				move_thread(0, -0.005)
+			elif (direction==2 or direction==3):
+				move_thread(0, 0.005)
+			rospy.sleep(1.5)
 
 			ensure=0
 
+			if(same>0): 
+				if(last_same==0):
+					if(direction==1):
+						move_thread(0.001/(turn+same-1), 0.02/(turn+same-1))
+					elif(direction==2):
+						move_thread(0.001/(turn+same-1), -0.02/(turn+same-1))
+					elif(direction==3):
+						move_thread(-0.001/(turn+same-1), -0.02/(turn+same-1))
+					else:
+						move_thread(-0.001/(turn+same-1), 0.02/(turn+same-1))
+
 			# if last turn was about the same pivot than the previous one, then increase the radius of the movement
 			if(previous==1):
-
-				r=r+(0.0001825-0.000135)/(same+turn)
-
 				# undo the previous movement to figure out which pivot to turn
+				if(direction==1 or direction==4):
+					move_thread(0, -(0.02-0.0015*(turn+same-1)))#0.02/turn
+				elif(direction==2 or direction==3):
+					move_thread(0, 0.02-0.0015*(turn+same-1))
+
+				rospy.sleep(1.5)
+
+			# if previous turn was about the same pivot than before, now move the gripper to new x, y position
+			if(last_same==1):
 				if(direction==1):
-					move_thread(0, -(0.02/turn)-0.001*(same-1))
+					if(release==0):
+						move_thread(0.001, 0.02) #/turn
+					else:
+						move_thread(0.0015, 0.03)
+
 				elif(direction==2):
-					move_thread(0, 0.02/turn-0.001*(same-1))
+					if(release==0):
+						move_thread(0.001, -0.02)
+					else:
+						move_thread(0.0015, -0.03)
+
 				elif(direction==3):
-					move_thread(0, 0.02/turn-0.001*(same-1))
-				else:
-					move_thread(0, -(0.02/turn-0.001*(same-1)))
+					if(release==0):
+						move_thread(-0.001, -0.02)
+					else:
+						move_thread(-0.0015, -0.03)
 
-				rospy.sleep(2)
-
-				# move the gripper to new x, y position
-				if(direction==1):
+				elif(direction==4):
 					if(release==0):
 						move_thread(-0.001, 0.02)
 					else:
 						move_thread(-0.0015, 0.03)
 
-					rospy.sleep(2)
-
-				elif(direction==2):
-					if(release==0):
-						move_thread(-0.001, -0.02)
-					else:
-						move_thread(-0.0015, -0.03)
-					rospy.sleep(2)
-
-				elif(direction==3):
-					if(release==0):
-						move_thread(0.001, -0.02)
-					else:
-						move_thread(0.0015, -0.03)
-					rospy.sleep(2)
-
-				elif(direction==4):
-					if(release==0):
-						move_thread(0.001, 0.02)
-					else:
-						move_thread(0.0015, 0.03)
-					rospy.sleep(2)
-
-			previous=0
+				rospy.sleep(2)
 
 			force_vector = Force.mean()
 			mxi = force_vector[0]
@@ -479,389 +501,206 @@ def move_robot():
 			else:
 				move_thread(up, 0)
 
-			rospy.sleep(2)
+			rospy.sleep(1.5)
 
-			s = 0.015 + 0.001*(turn+same)
+			if(direction==1 or direction==2):
+				s = 0.016 + 0.003*(turn/(same+1)+same/2)
+			else:
+				s = 0.016 + 0.004*(turn/(same+1)+same/2)
 
-			# Move 1 cm + pivots' circumference*number of turns
+			# Move to know if strign is tied CW or CCW
 			if (direction==1 or direction==4):
 				move_thread(0, s)
 			elif (direction==2 or direction==3):
 				move_thread(0, -s)
 
-			rospy.sleep(2)
+			rospy.sleep(1.5)
 
 			# Read torque values Mx, My
 			force_vector = Force.mean()
 			mx = force_vector[0]
 			my = force_vector[1]
 
-			# if Myi - My greater than threshold value, undo the movement
-			if(abs(myi - my)>0.085):
+			# if Myi - My greater than threshold value, undo the movement and turn about the other pivot in the other direction
+			if(abs(myi - my)>0.095):
 				if (direction==1 or direction==4):
 					move_thread(0, -s)
 				elif (direction==2 or direction==3):
 					move_thread(0, s)
 
-			# else: undo half of the movement
+				rospy.sleep(1.5)
+
+				if(same>0):
+					r=r+(0.0001825-r)/(turn+same)
+
+				# if previous turn CW P1, now turn CCW P2
+				if (direction==1):			
+					direction=4
+					turn_thread(n, n+360, r, -1, -1, 1)
+					
+				# if previous turn CCW about P1, now turn CW P2
+				elif (direction==2):
+					direction=3
+					turn_thread(n, n+360, r, -1, 1, 1)
+			
+				# if previous turn P2, now turn in the other direction about P1 and if torque increases, finish the movement
+				elif (direction==3 or direction==4):
+					if(direction==3):
+						turn_thread(n, n+15, r, 1, -1, 1)
+					elif(direction==4):
+						turn_thread(n, n+15, r, 1, 1, 1)
+					rospy.sleep(2)
+					force_vector = Force.mean()
+					mx = force_vector[0]
+					my = force_vector[1]
+
+					#if torque has increased during the mvt, FINISH
+					if((abs(mxi - mx)>0.095 or abs(myi - my)>0.095)):
+						end=1
+						break
+					else:
+						if(direction==3):
+							turn_thread(n+15, n+25, r, 1, -1, 1)
+						elif(direction==4):
+							turn_thread(n+15, n+25, r, 1, 1, 1)
+						rospy.sleep(2)
+						force_vector = Force.mean()
+						mx = force_vector[0]
+						my = force_vector[1]
+
+						if((abs(mxi - mx)>0.095 or abs(myi - my)>0.095)):
+							end=1
+							break
+						else:
+							if(direction==3):
+								turn_thread(n+25, n+45, r, 1, -1, 1)
+							elif(direction==4):
+								turn_thread(n+25, n+45, r, 1, 1, 1)
+							rospy.sleep(2)
+							force_vector = Force.mean()
+							mx = force_vector[0]
+							my = force_vector[1]
+							
+							if(abs(mxi - mx)>0.095 or abs(myi - my)>0.095):
+								end=1
+								break
+							else:
+								if(direction==3):
+									turn_thread(n+45, n+90, r, 1, -1, 1)
+								elif(direction==4):
+									turn_thread(n+45, n+90, r, 1, 1, 1)
+								rospy.sleep(2.5)
+								force_vector = Force.mean()
+								mx = force_vector[0]
+								my = force_vector[1]
+								
+								if(abs(mxi - mx)>0.095):
+									end=1
+									break
+								else:
+									if(direction==3):
+										turn_thread(n+90, n+335, r, 1, -1, 1)
+									elif(direction==4):
+										turn_thread(n+90, n+335, r, 1, 1, 1)
+									rospy.sleep(4)
+
+									force_vector = Force.mean()
+									mx = force_vector[0]
+									my = force_vector[1]
+									
+									if(abs(mxi - mx)>0.095 or abs(myi - my)>0.095):
+										end=1
+										break
+									else:
+										if(direction==3):
+											direction=2
+											turn_thread(n+335, n+360, r, 1, -1, 1)
+										elif(direction==4):
+											direction=1
+											turn_thread(n+335, n+360, r, 1, 1, 1)
+							
+				n=n+360
+				rospy.sleep(1+turn+same)
+
+			# else: undo half of the movement and turn in the same direction about the other pivot
 			else:
 				if (direction==1 or direction==4):
 					move_thread(0, -s/2)
 				elif (direction==2 or direction==3):
 					move_thread(0, s/2)
 
-			rospy.sleep(2)
+				rospy.sleep(1.5)
 
-			# if previous turn CW about P1
-			if (direction==1):			
+				no = n+180
+				n = no
 
-				# if Myi - My greater than threshold value, turn CCW about P2
-	  			if(abs(myi - my)>0.085):
-					direction=4
-					turn_thread(n, n+360, r, -1, -1, 1)
-					n=n+360
-					rospy.sleep(5)
-					
-				# else: turn CW about P2
-				else:
+				if(same>0):
+					r=r+(0.0001825-r)/((turn+same))#/2
+
+				# if previous turn CW about P1, now turn CW P2
+				if (direction==1):			
 					direction=3
-					no = n+180
-					n = no
 					turn_thread(n, n+170, r, -1, 1, 1)
-					n=n+180
-					rospy.sleep(3)
-
-				turn = turn+1
-
-			# if previous turn CCW about P1
-			elif (direction==2):
-
-				# if Myi - My greater than threshold value, turn CW about P2
-	  			if(abs(myi - my)>0.085):
-					direction=3
-					turn_thread(n, n+360, r, -1, 1, 1)
-					n=n+360
-					rospy.sleep(5)
 					
-				# else: turn CCW about P2
-				else:
+				# if previous turn CCW about P1, now turn CCW P2
+				elif (direction==2):
 					direction=4
-					no = n+180
-					n = no
 					turn_thread(n, n+170, r, -1, -1, 1)
-					n=n+180
+
+				# if previous turn about P2, now turn in the same direction about P1 and if torque increases, finish the movement
+				elif (direction==3 or direction==4):
+					if(direction==3):
+						turn_thread(n, n+140, r, 1, 1, 1)
+					elif(direction==4):
+						turn_thread(n, n+140, r, 1, -1, 1)
 					rospy.sleep(3)
 
-				turn = turn+1
-
-			# if previous turn CW about P2
-			elif (direction==3):
-
-				# if Myi - My greater than threshold value and number of turns is smaller than 3, turn CCW about P1
-	  			if(abs(myi - my)>0.085 and n<=1080):
-					direction=2
-					turn_thread(n, n+360, r, 1, -1, 1)
-					rospy.sleep(4)
-					n=n+360
-
-				# if Myi - My greater than threshold value and more than 3 turns, turn CCW about P1 and check if the force increases to finish the movement
-				elif(abs(myi - my)>0.085 and n>1080):
-					direction=2
-					turn_thread(n, n+18, r, 1, -1, 1)
-					rospy.sleep(2)
 					force_vector = Force.mean()
 					mx = force_vector[0]
 					my = force_vector[1]
 
-					#if torque has increased during the mvt, FINISH
-					if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
+					if(abs(mxi - mx)>0.095 or abs(myi - my)>0.095):
 						end=1
 						break
 					else:
-						turn_thread(n+18, n+25, r, 1, -1, 1)
-						rospy.sleep(2)
+						if(direction==3):
+							turn_thread(n+140, n+152, r, 1, 1, 1)
+						elif(direction==4):
+							turn_thread(n+140, n+152, r, 1, -1, 1)
+						rospy.sleep(3)
+
 						force_vector = Force.mean()
 						mx = force_vector[0]
 						my = force_vector[1]
 
-						if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
+						if(abs(mxi - mx)>0.095 or abs(myi - my)>0.095):
 							end=1
 							break
 						else:
-							turn_thread(n+25, n+45, r, 1, -1, 1)
-							rospy.sleep(2)
-							force_vector = Force.mean()
-							mx = force_vector[0]
-							my = force_vector[1]
-							
-							if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-								end=1
-								break
-							else:
-								turn_thread(n+45, n+90, r, 1, -1, 1)
-								rospy.sleep(3)
-								force_vector = Force.mean()
-								mx = force_vector[0]
-								my = force_vector[1]
-								
-								if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-									end=1
-									break
-								else:
-									turn_thread(n+90, n+325, r, 1, -1, 1)
-									rospy.sleep(4)
-									force_vector = Force.mean()
-									mx = force_vector[0]
-									my = force_vector[1]
-									
-									if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-										end=1
-										break
-									else:
-										turn_thread(n+325, n+335, r, 1, -1, 1)
-										rospy.sleep(2)
-										force_vector = Force.mean()
-										mx = force_vector[0]
-										my = force_vector[1]
-										
-										if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085) and (n>1080)):
-											end=1
-											break
-										else:
-											turn_thread(n+335, n+360, r, 1, -1, 1)
-											n=n+360
-																			
-				
-				# else: turn CW about P1
-				elif(abs(myi - my)<0.085 and n<=1080):
-					direction=1
-					no = n+180
-					n = no
-					turn_thread(n, n+170, r, 1, 1, 1)
-					rospy.sleep(4)
-					n=n+180
-					
-				elif(abs(myi - my)<0.085 and n>1080):
-					direction=1
-					no = n+180
-					n = no
-					turn_thread(n, n+120, r, 1, 1, 1)
-					rospy.sleep(4)
-					force_vector = Force.mean()
-					mx = force_vector[0]
-					my = force_vector[1]
+							if(direction==3):
+								direction=1
+								turn_thread(n+152, n+170, r, 1, 1, 1)
+							elif(direction==4):
+								direction=2
+								turn_thread(n+152, n+170, r, 1, -1, 1)
 
-					#if torque has increased during the mvt, FINISH
-					if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-						end=1
-						break
-					else:
-						turn_thread(n+120, n+130, r, 1, 1, 1)
-						rospy.sleep(2)
-						force_vector = Force.mean()
-						mx = force_vector[0]
-						my = force_vector[1]
-						
-						if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-							end=1
-							break
-						else:
-							turn_thread(n+130, n+138, r, 1, 1, 1)
-							rospy.sleep(2)
-							force_vector = Force.mean()
-							mx = force_vector[0]
-							my = force_vector[1]
-							
-							if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-								end=1
-								break
-							else:
-								turn_thread(n+138, n+145, r, 1, 1, 1)
-								rospy.sleep(2)
-								force_vector = Force.mean()
-								mx = force_vector[0]
-								my = force_vector[1]
-								
-								if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-									end=1
-									break
-								else:
-									turn_thread(n+145, n+160, r, 1, 1, 1)
-									rospy.sleep(2)
-									force_vector = Force.mean()
-									mx = force_vector[0]
-									my = force_vector[1]
-									
-									if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-										end=1
-										break
-									else:
-										turn_thread(n+160, n+170, r, 1, 1, 1)
-										n=n+180
-
-				rospy.sleep(3)
-				turn = turn+1
+				n=n+180
+				rospy.sleep(1+(turn+same)/2)
 				
-			#if previous turn CCW about P2
-			elif (direction==4):
-
-				# if Myi - My greater than threshold value and less than 3 turns, turn CW about P1
-	  			if(abs(myi - my)>0.085 and n<=1080):
-					direction=1
-					turn_thread(n, n+360, r, 1, 1, 1)
-					rospy.sleep(4)
-					n=n+360
-				
-				# if Myi - My greater than threshold value and more than 3 turns, turn CW about P1 and check if the thread has been totally untied	
-				elif(abs(myi - my)>0.085 and n>1080):
-					direction=1
-					turn_thread(n, n+18, r, 1, 1, 1)
-					rospy.sleep(2)
-					force_vector = Force.mean()
-					mx = force_vector[0]
-					my = force_vector[1]
-				
-					#if torque has increased during the mvt, FINISH
-					if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-						end=1
-						break
-					else:
-						turn_thread(n+18, n+25, r, 1, 1, 1)
-						rospy.sleep(2)
-						force_vector = Force.mean()
-						mx = force_vector[0]
-						my = force_vector[1]
-						
-						if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-							end=1
-							break
-						else:
-							turn_thread(n+25, n+45, r, 1, 1, 1)
-							rospy.sleep(2)
-							force_vector = Force.mean()
-							mx = force_vector[0]
-							my = force_vector[1]
-							
-							if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-								end=1
-								break
-							else:
-								turn_thread(n+45, n+90, r, 1, 1, 1)
-								rospy.sleep(3)
-								force_vector = Force.mean()
-								mx = force_vector[0]
-								my = force_vector[1]
-								
-								if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-									end=1
-									break
-								else:
-									turn_thread(n+90, n+325, r, 1, 1, 1)
-									rospy.sleep(4)
-									force_vector = Force.mean()
-									mx = force_vector[0]
-									my = force_vector[1]
-									
-									if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-										end=1
-										break
-									else:
-										turn_thread(n+325, n+335, r, 1, 1, 1)
-										rospy.sleep(2)
-										force_vector = Force.mean()
-										mx = force_vector[0]
-										my = force_vector[1]
-										
-										if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-											end=1
-											break
-										else:
-											turn_thread(n+335, n+360, r, 1, 1, 1)
-											n=n+360
-															
-				# else: turn CCW about P1
-				elif(abs(myi - my)<0.085 and n<=1080):
-					direction=2
-					no = n+180
-					n = no
-					turn_thread(n, n+170, r, 1, -1, 1)
-					rospy.sleep(4)
-					n=n+180
-
-				elif(abs(myi - my)<0.085 and n>1080):
-					direction=2
-					no = n+180
-					n = no
-					turn_thread(n, n+120, r, 1, -1, 1)
-					rospy.sleep(4)
-					force_vector = Force.mean()
-					mx = force_vector[0]
-					my = force_vector[1]
-					
-					#if torque has increased during the mvt, FINISH
-					if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-						end=1
-						break
-					else:
-						turn_thread(n+120, n+130, r, 1, -1, 1)
-						rospy.sleep(2)
-						force_vector = Force.mean()
-						mx = force_vector[0]
-						my = force_vector[1]
-						
-						if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-							end=1
-							break
-						else:
-							turn_thread(n+130, n+138, r, 1, -1, 1)
-							rospy.sleep(2)
-							force_vector = Force.mean()
-							mx = force_vector[0]
-							my = force_vector[1]
-							
-							if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-								end=1
-								break
-							else:
-								turn_thread(n+138, n+145, r, 1, -1, 1)
-								rospy.sleep(2)
-								force_vector = Force.mean()
-								mx = force_vector[0]
-								my = force_vector[1]
-								
-								if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-									end=1
-									break
-								else:
-									turn_thread(n+145, n+160, r, 1, -1, 1)
-									rospy.sleep(2)
-									force_vector = Force.mean()
-									mx = force_vector[0]
-									my = force_vector[1]
-									
-									if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085)):
-										end=1
-										break
-									else:
-										turn_thread(n+160, n+170, r, 1, -1, 1)
-										n=n+180
-
-				rospy.sleep(3)
-				turn = turn+1
-				
-				if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085) and (n>1080) and (direction==1 or direction==2)):
-					end=1
+				if(end==1):
 					break
 
-			if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085) and (n>1080) and (direction==1 or direction==2)):
-				end=1
+			previous=0
+			last_same=0
+			turn = turn+1
+
+			if(end==1):
 				break
 
-		if((abs(mxi - mx)>0.085 or abs(myi - my)>0.085) and (n>1080) and (direction==1 or direction==2)):
-			end=1
+		if(end==1):
 			break
 
-	if((end==1) and (n>1080) and (direction==1 or direction==2)):
+	if(end==1):
 		break			
 
 if __name__=='__main__':
